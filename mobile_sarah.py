@@ -41,6 +41,7 @@ button:disabled{opacity:.55}button.secondary,.upload{background:#e8eef6;color:#1
 .report{border:1px solid #d4dce5;border-radius:10px;padding:10px;margin:8px 0;white-space:pre-wrap;overflow-wrap:anywhere;direction:auto}
 small{display:block;margin:9px 0;color:#526070}#preview{max-width:100%;max-height:170px;display:none;margin:8px 0;border-radius:8px}
 #status{font-size:13px;color:#445}details summary{cursor:pointer;font-weight:bold}
+.history-item{display:flex;gap:8px;align-items:center;margin:8px 0}.history-item button:first-child{flex:1;text-align:start}.history-item button:last-child{flex:0 0 auto}.history-item.active button:first-child{background:#d8ebff;color:#15395b}
 </style></head><body>
 <h1>ساره 🎙️</h1>
 <div class="box"><div id="chat" aria-live="polite"></div>
@@ -52,15 +53,59 @@ small{display:block;margin:9px 0;color:#526070}#preview{max-width:100%;max-heigh
 <div class="controls"><button class="secondary" id="speak" type="button">🔊 الرد بصوت: مطفّي</button>
 <button class="secondary" id="clear" type="button">🗑️ محادثة جديدة</button></div>
 <small id="status">الصوت بيعتمد على دعم المتصفح؛ إذا المايك ما اشتغل، استعمل مايك كيبورد الآيفون.</small></div>
+<div class="box"><details><summary>🕘 سجل المحادثات <span id="history-count"></span></summary>
+<small>المحادثات محفوظة بهالمتصفح على هالجهاز فقط. فيك ترجع تفتح محادثة قديمة أو تمحيها.</small>
+<div id="history-list"></div></details></div>
 <div class="box"><details open><summary>📞 تقارير المكالمات <span id="count"></span></summary>
 <small>بيطلع تنبيه جوّا الصفحة لما يوصل تقرير جديد وهي مفتوحة. إشعارات الآيفون وهو مقفّل بدها إعداد Push منفصل.</small>
 <div id="reports">ما في تقارير بهالجلسة.</div></details></div>
 <script>
 const $ = id => document.getElementById(id);
 const CHAT_KEY='sarah_chat_v2', REPORT_KEY='sarah_reports_v2';
+const SESSIONS_KEY='sarah_conversations_v1', ACTIVE_KEY='sarah_active_conversation_v1';
 function load(key){try{return JSON.parse(localStorage.getItem(key)||'[]')}catch(e){return []}}
-let chat=load(CHAT_KEY), reports=load(REPORT_KEY), photo=null, autoSpeak=false, busy=false;
-function save(){localStorage.setItem(CHAT_KEY,JSON.stringify(chat.slice(-60)))}
+function newSession(){return {id:String(Date.now())+'-'+Math.random().toString(36).slice(2),updated:Date.now(),messages:[]}}
+let sessions=load(SESSIONS_KEY);
+if(!Array.isArray(sessions))sessions=[];
+sessions=sessions.filter(x=>x&&typeof x.id==='string'&&Array.isArray(x.messages));
+// Import the existing chat once, without deleting the old browser backup.
+if(!sessions.length){const old=load(CHAT_KEY);const first=newSession();
+ if(Array.isArray(old))first.messages=old.filter(x=>x&&['user','assistant'].includes(x.role)&&typeof x.content==='string').slice(-60);
+ sessions=[first]}
+let activeId=localStorage.getItem(ACTIVE_KEY);
+if(!sessions.some(x=>x.id===activeId))activeId=sessions[0].id;
+let chat=sessions.find(x=>x.id===activeId).messages;
+let reports=load(REPORT_KEY), photo=null, autoSpeak=false, busy=false;
+function save(){
+ const current=sessions.find(x=>x.id===activeId);
+ if(current){current.messages=chat.slice(-60);current.updated=Date.now()}
+ // Keep at most 30 conversations, but never drop the active one.
+ sessions=sessions.sort((a,b)=>b.updated-a.updated).slice(0,30);
+ try{localStorage.setItem(SESSIONS_KEY,JSON.stringify(sessions));localStorage.setItem(ACTIVE_KEY,activeId)}
+ catch(e){status('⚠️ مساحة التخزين ممتلئة؛ ما قدرت إحفظ المحادثة.')} 
+ renderHistory();
+}
+function resetPhoto(){$('message').value='';$('photo').value='';photo=null;$('preview').style.display='none'}
+function renderHistory(){
+ $('history-count').textContent='('+sessions.filter(x=>x.messages.length).length+')';
+ const list=$('history-list');list.replaceChildren();
+ const populated=sessions.filter(x=>x.messages.length).sort((a,b)=>b.updated-a.updated);
+ if(!populated.length){list.textContent='ما في محادثات محفوظة بعد.';return}
+ for(const session of populated){
+  const row=document.createElement('div');row.className='history-item'+(session.id===activeId?' active':'');
+  const open=document.createElement('button');open.type='button';open.className='secondary';
+  const first=session.messages.find(m=>m.role==='user');
+  const title=first?first.content.replace(/\s+/g,' ').slice(0,55):'محادثة';
+  open.textContent=title+' — '+new Date(session.updated).toLocaleDateString('ar-LB');
+  open.onclick=()=>{if(busy)return;activeId=session.id;chat=session.messages;resetPhoto();save();renderChat();status('فتحت المحادثة القديمة')};
+  const del=document.createElement('button');del.type='button';del.className='secondary';del.textContent='🗑️';del.title='حذف المحادثة';
+  del.onclick=()=>{if(busy||!confirm('بدك تمحي هالمحادثة نهائياً من هالمتصفح؟'))return;
+   sessions=sessions.filter(x=>x.id!==session.id);
+   if(session.id===activeId){const next=sessions[0]||newSession();if(!sessions.length)sessions=[next];activeId=next.id;chat=next.messages;resetPhoto();renderChat()}
+   save();status('انحذفت المحادثة المختارة')};
+  row.append(open,del);list.append(row)
+ }
+}
 function bubble(role,text){const d=document.createElement('div');d.className='bubble '+(role==='user'?'me':'');
  const m=document.createElement('div');m.className='meta';m.textContent=role==='user'?'إنت':'ساره';
  const t=document.createElement('div');t.textContent=text;d.append(m,t);$('chat').append(d)}
@@ -72,7 +117,10 @@ function speak(text){if(!('speechSynthesis' in window))return;window.speechSynth
  if(v&&u.lang==='ar-LB')u.voice=v;window.speechSynthesis.speak(u)}
 $('speak').onclick=()=>{autoSpeak=!autoSpeak;$('speak').textContent='🔊 الرد بصوت: '+(autoSpeak?'شغّال':'مطفّي');if(!autoSpeak&&'speechSynthesis'in window)speechSynthesis.cancel()};
 $('photo').onchange=()=>{photo=$('photo').files[0]||null;if(photo){$('preview').src=URL.createObjectURL(photo);$('preview').style.display='block';status('الصورة جاهزة للإرسال: '+photo.name)}else $('preview').style.display='none'};
-$('clear').onclick=()=>{if(!confirm('نبلّش محادثة جديدة؟'))return;chat=[];save();renderChat();status('محادثة جديدة')};
+$('clear').onclick=()=>{if(busy)return;if(!confirm('نبلّش محادثة جديدة؟ القديمة بتضل بسجل المحادثات.'))return;
+ const current=sessions.find(x=>x.id===activeId);
+ if(current&&current.messages.length){const next=newSession();sessions.unshift(next);activeId=next.id;chat=next.messages}
+ else chat=[];resetPhoto();save();renderChat();status('محادثة جديدة — القديمة محفوظة بالسجل')};
 function imageData(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}
 async function send(){if(busy)return;const text=$('message').value.trim();if(!text&&!photo)return;
  if(photo&&photo.size>8*1024*1024){status('الصورة أكبر من 8 MB. اختار صورة أصغر.');return}
@@ -102,7 +150,7 @@ async function poll(){try{const res=await fetch('/call-history',{cache:'no-store
  if(changed){reports=reports.slice(-100);localStorage.setItem(REPORT_KEY,JSON.stringify(reports));renderReports();status('📞 وصل تقرير مكالمة جديد');
  if(navigator.vibrate)navigator.vibrate(200)}
  }catch(e){}}
-renderChat();renderReports();poll();setInterval(poll,15000);
+renderChat();renderHistory();renderReports();poll();setInterval(poll,15000);
 </script></body></html>'''
 
 @app.get('/')
