@@ -20,13 +20,21 @@ If Khodor requests a message to an English-speaking person, write natural Englis
 When asked to find a part or product, identify it carefully; distinguish a visual
 match from confirmed compatibility, ask for model/part number when necessary, and
 provide prices and purchase links only when you actually found them via web search.
+For shopping and best-price requests, check Amazon as well as other sellers. If you
+cannot verify an Amazon listing for the exact model, say so plainly; do not invent
+an Amazon price or URL. Compare identical model, battery and configuration, and
+clearly flag out-of-stock items. Keep the reply SHORT and easy to scan in Lebanese
+Arabic: item/model, up to 3 verified offers (seller, price, direct link), then one
+brief note about compatibility/availability. Say 'lowest of checked offers', never
+claim 'lowest anywhere' without proof. Do not claim to have called anyone or booked
+a reservation; outbound calls and bookings are not connected yet.
 Prepare a purchase list, but never buy, place orders, or make payments.
 You have no access to Gmail, WhatsApp, private computer files or Google Sheets.
 Never claim to have performed an action without a connected tool. Do not invent links.
 """
 
 HTML = r'''<!doctype html>
-<html lang="ar"><head>
+<html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sarah</title>
 <style>
@@ -43,22 +51,22 @@ small{display:block;margin:9px 0;color:#526070}#preview{max-width:100%;max-heigh
 #status{font-size:13px;color:#445}details summary{cursor:pointer;font-weight:bold}
 .history-item{display:flex;gap:8px;align-items:center;margin:8px 0}.history-item button:first-child{flex:1;text-align:start}.history-item button:last-child{flex:0 0 auto}.history-item.active button:first-child{background:#d8ebff;color:#15395b}
 </style></head><body>
-<h1>ساره 🎙️</h1>
+<h1>Sarah 🎙️</h1>
 <div class="box"><div id="chat" aria-live="polite"></div>
-<textarea id="message" placeholder="احكي مع ساره أو ابعت صورة قطعة..."></textarea>
-<img id="preview" alt="الصورة المختارة">
+<textarea id="message" placeholder="Ask Sarah or send a photo..."></textarea>
+<img id="preview" alt="Selected photo">
 <input id="photo" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
-<div class="controls"><button class="secondary" id="mic" type="button">🎙️ احكي</button>
-<label class="upload" for="photo">📷 صورة</label><button id="send" type="button">إبعث</button></div>
-<div class="controls"><button class="secondary" id="speak" type="button">🔊 الرد بصوت: مطفّي</button>
-<button class="secondary" id="clear" type="button">🗑️ محادثة جديدة</button></div>
-<small id="status">الصوت بيعتمد على دعم المتصفح؛ إذا المايك ما اشتغل، استعمل مايك كيبورد الآيفون.</small></div>
-<div class="box"><details><summary>🕘 سجل المحادثات <span id="history-count"></span></summary>
-<small>المحادثات محفوظة بهالمتصفح على هالجهاز فقط. فيك ترجع تفتح محادثة قديمة أو تمحيها.</small>
+<div class="controls"><button class="secondary" id="mic" type="button">🎙️ Start Mic</button>
+<label class="upload" for="photo">📷 Photo</label><button id="send" type="button">Send</button></div>
+<div class="controls"><button class="secondary" id="speak" type="button">🔊 Voice Reply: OFF</button>
+<button class="secondary" id="clear" type="button">🗑️ New Chat</button></div>
+<small id="status">Tap Start Mic to dictate, Stop Mic to finish, then Send. Voice Reply reads Sarah’s answers aloud.</small></div>
+<div class="box"><details><summary>🕘 Chat History <span id="history-count"></span></summary>
+<small>Saved on this device and browser only. Open or delete past chats here.</small>
 <div id="history-list"></div></details></div>
-<div class="box"><details open><summary>📞 تقارير المكالمات <span id="count"></span></summary>
-<small>بيطلع تنبيه جوّا الصفحة لما يوصل تقرير جديد وهي مفتوحة. إشعارات الآيفون وهو مقفّل بدها إعداد Push منفصل.</small>
-<div id="reports">ما في تقارير بهالجلسة.</div></details></div>
+<div class="box"><details open><summary>📞 Call Reports <span id="count"></span></summary>
+<small>New reports appear while this page is open. iPhone lock-screen alerts need a separate setup.</small>
+<div id="reports">No call reports in this session.</div></details></div>
 <script>
 const $ = id => document.getElementById(id);
 const CHAT_KEY='sarah_chat_v2', REPORT_KEY='sarah_reports_v2';
@@ -82,7 +90,7 @@ function save(){
  // Keep at most 30 conversations, but never drop the active one.
  sessions=sessions.sort((a,b)=>b.updated-a.updated).slice(0,30);
  try{localStorage.setItem(SESSIONS_KEY,JSON.stringify(sessions));localStorage.setItem(ACTIVE_KEY,activeId)}
- catch(e){status('⚠️ مساحة التخزين ممتلئة؛ ما قدرت إحفظ المحادثة.')} 
+ catch(e){status('⚠️ Browser storage full; chat could not be saved.')} 
  renderHistory();
 }
 function resetPhoto(){$('message').value='';$('photo').value='';photo=null;$('preview').style.display='none'}
@@ -90,24 +98,24 @@ function renderHistory(){
  $('history-count').textContent='('+sessions.filter(x=>x.messages.length).length+')';
  const list=$('history-list');list.replaceChildren();
  const populated=sessions.filter(x=>x.messages.length).sort((a,b)=>b.updated-a.updated);
- if(!populated.length){list.textContent='ما في محادثات محفوظة بعد.';return}
+ if(!populated.length){list.textContent='No saved chats yet.';return}
  for(const session of populated){
   const row=document.createElement('div');row.className='history-item'+(session.id===activeId?' active':'');
   const open=document.createElement('button');open.type='button';open.className='secondary';
   const first=session.messages.find(m=>m.role==='user');
-  const title=first?first.content.replace(/\s+/g,' ').slice(0,55):'محادثة';
-  open.textContent=title+' — '+new Date(session.updated).toLocaleDateString('ar-LB');
-  open.onclick=()=>{if(busy)return;activeId=session.id;chat=session.messages;resetPhoto();save();renderChat();status('فتحت المحادثة القديمة')};
-  const del=document.createElement('button');del.type='button';del.className='secondary';del.textContent='🗑️';del.title='حذف المحادثة';
-  del.onclick=()=>{if(busy||!confirm('بدك تمحي هالمحادثة نهائياً من هالمتصفح؟'))return;
+  const title=first?first.content.replace(/\s+/g,' ').slice(0,55):'Chat';
+  open.textContent=title+' — '+new Date(session.updated).toLocaleDateString('en-US');
+  open.onclick=()=>{if(busy)return;activeId=session.id;chat=session.messages;resetPhoto();save();renderChat();status('Opened saved chat')};
+  const del=document.createElement('button');del.type='button';del.className='secondary';del.textContent='🗑️';del.title='Delete chat';
+  del.onclick=()=>{if(busy||!confirm('Delete this chat from this browser permanently?'))return;
    sessions=sessions.filter(x=>x.id!==session.id);
    if(session.id===activeId){const next=sessions[0]||newSession();if(!sessions.length)sessions=[next];activeId=next.id;chat=next.messages;resetPhoto();renderChat()}
-   save();status('انحذفت المحادثة المختارة')};
+   save();status('Chat deleted')};
   row.append(open,del);list.append(row)
  }
 }
 function bubble(role,text){const d=document.createElement('div');d.className='bubble '+(role==='user'?'me':'');
- const m=document.createElement('div');m.className='meta';m.textContent=role==='user'?'إنت':'ساره';
+ const m=document.createElement('div');m.className='meta';m.textContent=role==='user'?'You':'Sarah';
  const t=document.createElement('div');t.textContent=text;d.append(m,t);$('chat').append(d)}
 function renderChat(){$('chat').replaceChildren();chat.forEach(x=>bubble(x.role,x.content))}
 function status(t){$('status').textContent=t}
@@ -115,39 +123,67 @@ function speak(text){if(!('speechSynthesis' in window))return;window.speechSynth
  const u=new SpeechSynthesisUtterance(text);u.lang=/[\u0600-\u06ff]/.test(text)?'ar-LB':'en-US';u.rate=.95;
  const voices=window.speechSynthesis.getVoices();const v=voices.find(v=>v.lang.toLowerCase()==='ar-lb')||voices.find(v=>v.lang.startsWith('ar'));
  if(v&&u.lang==='ar-LB')u.voice=v;window.speechSynthesis.speak(u)}
-$('speak').onclick=()=>{autoSpeak=!autoSpeak;$('speak').textContent='🔊 الرد بصوت: '+(autoSpeak?'شغّال':'مطفّي');if(!autoSpeak&&'speechSynthesis'in window)speechSynthesis.cancel()};
-$('photo').onchange=()=>{photo=$('photo').files[0]||null;if(photo){$('preview').src=URL.createObjectURL(photo);$('preview').style.display='block';status('الصورة جاهزة للإرسال: '+photo.name)}else $('preview').style.display='none'};
-$('clear').onclick=()=>{if(busy)return;if(!confirm('نبلّش محادثة جديدة؟ القديمة بتضل بسجل المحادثات.'))return;
+$('speak').onclick=()=>{autoSpeak=!autoSpeak;$('speak').textContent='🔊 Voice Reply: '+(autoSpeak?'ON':'OFF');if(!autoSpeak&&'speechSynthesis'in window)speechSynthesis.cancel()};
+$('photo').onchange=()=>{photo=$('photo').files[0]||null;if(photo){$('preview').src=URL.createObjectURL(photo);$('preview').style.display='block';status('Photo ready: '+photo.name)}else $('preview').style.display='none'};
+$('clear').onclick=()=>{if(busy)return;if(!confirm('Start a new chat? The old one stays in Chat History.'))return;
  const current=sessions.find(x=>x.id===activeId);
  if(current&&current.messages.length){const next=newSession();sessions.unshift(next);activeId=next.id;chat=next.messages}
- else chat=[];resetPhoto();save();renderChat();status('محادثة جديدة — القديمة محفوظة بالسجل')};
+ else chat=[];resetPhoto();save();renderChat();status('New chat — previous chat saved')};
 function imageData(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}
 async function send(){if(busy)return;const text=$('message').value.trim();if(!text&&!photo)return;
- if(photo&&photo.size>8*1024*1024){status('الصورة أكبر من 8 MB. اختار صورة أصغر.');return}
- busy=true;$('send').disabled=true;status('ساره عم ترد...');let img=null;
+ if(photo&&photo.size>8*1024*1024){status('Photo exceeds 8 MB. Choose a smaller photo.');return}
+ busy=true;$('send').disabled=true;status('Sarah is replying...');let img=null;
  try{if(photo)img=await imageData(photo);const shown=text||'شو هيدي القطعة؟';
  const context=chat.slice(-10).map(x=>({role:x.role,content:x.content}));
  bubble('user',shown+(img?' 📷':''));
  const res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text||'شو هيدي القطعة؟',image:img,history:context})});
  const data=await res.json();if(!res.ok)throw Error(data.error||'فشل الاتصال');
  chat.push({role:'user',content:shown+(img?' [صورة]':'')},{role:'assistant',content:data.answer});save();bubble('assistant',data.answer);
- if(autoSpeak)speak(data.answer);$('message').value='';$('photo').value='';photo=null;$('preview').style.display='none';status('جاهزة');
- }catch(e){bubble('assistant','صار خطأ: '+e.message);status('جرّب من جديد')}finally{busy=false;$('send').disabled=false}}
+ if(autoSpeak)speak(data.answer);$('message').value='';$('photo').value='';photo=null;$('preview').style.display='none';status('Ready');
+ }catch(e){bubble('assistant','صار خطأ: '+e.message);status('Try again')}finally{busy=false;$('send').disabled=false}}
 $('send').onclick=send;
 $('message').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();send()}});
 const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-if(SpeechRecognition){const rec=new SpeechRecognition();rec.lang='ar-LB';rec.interimResults=false;rec.maxAlternatives=1;
- $('mic').onclick=()=>{try{rec.start();status('عم بسمعك...')}catch(e){status('المايك مش جاهز: '+e.message)}};
- rec.onresult=e=>{const said=e.results[0][0].transcript;$('message').value=said;status('سمعت: '+said+' — اكبس إبعث');};
- rec.onerror=e=>status('المايك: '+e.error+' — فيك تستعمل مايك الكيبورد');rec.onend=()=>{$('mic').disabled=false};
-}else $('mic').onclick=()=>status('المتصفح ما بيدعم هالمايك. استعمل مايك كيبورد الآيفون.');
+if(SpeechRecognition){
+ const rec=new SpeechRecognition();rec.lang='ar-LB';rec.interimResults=false;
+ rec.maxAlternatives=1;rec.continuous=true;
+ let listening=false, stopping=false;
+ function micLabel(){
+  $('mic').textContent=listening?'⏹️ Stop Mic':'🎙️ Start Mic';
+  $('mic').setAttribute('aria-pressed',String(listening));
+ }
+ $('mic').onclick=()=>{
+  if(listening){stopping=true;status('Finishing dictation...');
+   try{rec.stop()}catch(e){listening=false;stopping=false;micLabel();status('Mic stopped')}
+   return;
+  }
+  stopping=false;
+  try{rec.start();listening=true;micLabel();status('Listening... tap Stop Mic when done')}
+  catch(e){listening=false;micLabel();status('Mic unavailable: '+e.message)}
+ };
+ rec.onresult=e=>{
+  const said=Array.from(e.results).slice(e.resultIndex)
+    .filter(x=>x.isFinal).map(x=>x[0].transcript).join(' ').trim();
+  if(said){$('message').value=[$('message').value.trim(),said].filter(Boolean).join(' ');
+   status('Dictation added. Tap Stop Mic, then Send.');}
+ };
+ rec.onerror=e=>{
+  if(e.error!=='no-speech'&&e.error!=='aborted')status('Mic: '+e.error+'. Try keyboard dictation.');
+ };
+ rec.onend=()=>{
+  const wasStopping=stopping;listening=false;stopping=false;micLabel();
+  if(wasStopping)status('Mic stopped — review text, then Send');
+  else if($('message').value.trim())status('Mic finished — review text, then Send');
+  else status('Mic stopped — tap Start Mic to try again');
+ };
+}else $('mic').onclick=()=>status('This browser does not support speech recognition. Use the keyboard microphone.');
 function renderReports(){$('count').textContent=reports.length?'('+reports.length+')':'';$('reports').replaceChildren();
- if(!reports.length){$('reports').textContent='ما في تقارير بهالجلسة.';return}
+ if(!reports.length){$('reports').textContent='No call reports in this session.';return}
  reports.slice().reverse().forEach(r=>{const d=document.createElement('div');d.className='report';d.textContent=(r.received_at||'')+'\n'+r.message;$('reports').append(d)})}
 async function poll(){try{const res=await fetch('/call-history',{cache:'no-store'});if(!res.ok)return;
  const data=await res.json();let changed=false;
  for(const r of data.reports||[]){if(!reports.some(old=>old.id===r.id)){reports.push(r);changed=true}}
- if(changed){reports=reports.slice(-100);localStorage.setItem(REPORT_KEY,JSON.stringify(reports));renderReports();status('📞 وصل تقرير مكالمة جديد');
+ if(changed){reports=reports.slice(-100);localStorage.setItem(REPORT_KEY,JSON.stringify(reports));renderReports();status('📞 New call report received');
  if(navigator.vibrate)navigator.vibrate(200)}
  }catch(e){}}
 renderChat();renderHistory();renderReports();poll();setInterval(poll,15000);
